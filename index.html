@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>velavokr — engineering translations &amp; notes</title>
+<meta name="description" content="English translations of Russian engineering articles, plus occasional notes by Ruslan Kovalev (velavokr).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbf9f4;
+    --bg-2: #f4f0e6;
+    --ink: #161616;
+    --ink-soft: #3a3a3a;
+    --muted: #6e6a62;
+    --rule: #e2dccd;
+    --accent: #fc3f1d;
+    --accent-ink: #b22a0d;
+    --maxw: 760px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 18px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  header.hero {
+    border-bottom: 1px solid var(--rule);
+    padding: 64px 24px 44px;
+    background:
+      radial-gradient(900px 380px at 85% -20%, rgba(252,63,29,0.07), transparent 60%),
+      var(--bg);
+  }
+  .hero-inner { max-width: var(--maxw); margin: 0 auto; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .eyebrow .dot { width: 7px; height: 7px; background: var(--accent); border-radius: 999px; }
+  h1.site {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.018em;
+    margin: 18px 0 12px;
+  }
+  h1.site em {
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 80;
+    color: var(--accent-ink);
+  }
+  .tagline {
+    font-family: 'Fraunces', Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 20px;
+    color: var(--ink-soft);
+    margin: 0 0 24px;
+    max-width: 600px;
+  }
+  .hero-meta {
+    display: flex; flex-wrap: wrap; gap: 14px 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .hero-meta a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .hero-meta a:hover { color: var(--accent); border-color: var(--accent); }
+
+  main { padding: 56px 24px 24px; }
+  .col { max-width: var(--maxw); margin: 0 auto; }
+
+  section + section { margin-top: 56px; }
+  h2.section {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-size: 28px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .section-note {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0 0 24px;
+  }
+
+  ul.entries { list-style: none; padding: 0; margin: 0; }
+  li.entry {
+    padding: 22px 0;
+    border-top: 1px solid var(--rule);
+  }
+  li.entry:last-child { border-bottom: 1px solid var(--rule); }
+  .entry-row {
+    display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap;
+  }
+  .entry-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    min-width: 96px;
+  }
+  .entry-body { flex: 1 1 360px; }
+  .entry-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 22px;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .entry-title a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+  }
+  .entry-title a:hover { color: var(--accent); border-color: var(--accent); }
+  .entry-sub {
+    font-family: 'Fraunces', Georgia, serif;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-size: 16px;
+    margin: 0 0 10px;
+  }
+  .entry-tags {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .entry-tags .tag {
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 2px 9px;
+    background: var(--bg-2);
+  }
+  .entry-source {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .entry-source a {
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+  }
+  .entry-source a:hover { color: var(--accent); border-color: var(--accent); }
+
+  .empty {
+    border: 1px dashed var(--rule);
+    border-radius: 8px;
+    padding: 18px 20px;
+    color: var(--muted);
+    font-size: 15px;
+    background: var(--bg-2);
+  }
+
+  footer.colophon {
+    margin-top: 64px;
+    border-top: 1px solid var(--rule);
+    padding: 28px 24px 56px;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+  .colophon-inner {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    justify-content: space-between;
+  }
+  .colophon a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .colophon a:hover { color: var(--accent); border-color: var(--accent); }
+
+  @media (max-width: 640px) {
+    body { font-size: 17px; }
+    header.hero { padding: 44px 20px 32px; }
+    main { padding: 36px 20px 12px; }
+    .entry-row { gap: 4px; }
+    .entry-date { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow"><span class="dot"></span>velavokr &middot; engineering translations &amp; notes</span>
+    <h1 class="site">Backend, search, &amp; <em>distributed systems</em>, in translation.</h1>
+    <p class="tagline">A small archive of English translations of Russian engineering articles, plus the occasional note. Curated by Ruslan Kovalev.</p>
+    <div class="hero-meta">
+      <span><a href="https://github.com/velavokr">github.com/velavokr</a></span>
+      <span><a href="https://github.com/velavokr/velavokr.github.io">source of this site</a></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="col">
+
+    <section>
+      <h2 class="section">Translations &middot; en &larr; ru</h2>
+      <p class="section-note">English renditions of Russian-language engineering posts. Diagrams are redrawn in English.</p>
+      <ul class="entries">
+        <li class="entry">
+          <div class="entry-row">
+            <div class="entry-date">2025-07-10</div>
+            <div class="entry-body">
+              <h3 class="entry-title"><a href="translations/en/habr.ru/924198-yandex-lavka-search.html">Disassembling the Yandex Lavka search service</a></h3>
+              <p class="entry-sub">From Aho&ndash;Corasick to a multi-layer ML &ldquo;burger&rdquo; on C++ &mdash; how a quick-commerce search backend was actually built, and what breaks when you turn each layer off.</p>
+              <div class="entry-tags">
+                <span class="tag">search</span>
+                <span class="tag">mlops</span>
+                <span class="tag">bm25</span>
+                <span class="tag">DSSM</span>
+                <span class="tag">BERT</span>
+                <span class="tag">CatBoost</span>
+                <span class="tag">userver</span>
+                <span class="tag">C++</span>
+              </div>
+              <p class="entry-source">orig: <a href="https://habr.com/ru/companies/yandex/articles/924198/" target="_blank" rel="noopener">habr.com/ru/companies/yandex/articles/924198</a> &middot; author: Nikolai Smirnov (<a href="https://habr.com/ru/users/svetograde/" target="_blank" rel="noopener">@svetograde</a>)</p>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="section">Notes</h2>
+      <p class="section-note">Original write-ups will land here.</p>
+      <p class="empty">Nothing published yet.</p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="colophon">
+  <div class="colophon-inner">
+    <span>&copy; Ruslan Kovalev &middot; content under CC&nbsp;BY&nbsp;4.0 unless noted</span>
+    <span>built static, no tracking &middot; <a href="https://github.com/velavokr/velavokr.github.io">source</a></span>
+  </div>
+</footer>
+
+</body>
+</html>
