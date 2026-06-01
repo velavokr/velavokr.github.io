@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Teaching a weak model to win a hard agent benchmark — velavokr</title>
-<meta name="description" content="Post-mortem of building an agent for the BitGN ecom1 agentic-commerce benchmark: 0.55→88.6/100 (rank #6), and what it taught me about agents. By Ruslan Kovalev.">
+<title>Code over scale: an open-weights agent against the frontier — velavokr</title>
+<meta name="description" content="Post-mortem of building an agent for the BitGN ecom1 agentic-commerce benchmark: 55→88.6/100 (#6 of 100), and what it taught me about agents. By Ruslan Kovalev.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -92,12 +92,12 @@
 <header class="hero">
   <div class="hero-inner">
     <span class="eyebrow"><span class="dot"></span><a href="../index.html">velavokr</a> &middot; notes</span>
-    <h1 class="title">Teaching a weak model to <em>win</em> a hard agent benchmark</h1>
+    <h1 class="title">Code <em>over</em> scale: an open-weights agent against the frontier</h1>
     <p class="tagline">A post-mortem of building an agent for the BitGN <span class="mono">ecom1</span> agentic-commerce benchmark — and what it taught me about agents.</p>
     <div class="hero-meta">
       <span>2026-05 &middot; Ruslan Kovalev</span>
       <span>executor: <b>DeepSeek-V4-Pro</b> (open-weights)</span>
-      <span>best <b>88.6/100</b> &middot; <span class="hot">#6 on the public leaderboard</span></span>
+      <span>best <b>88.6/100</b> &middot; <span class="hot">#6 of 100 on the public leaderboard</span></span>
     </div>
   </div>
 </header>
@@ -108,8 +108,8 @@
 <div class="panel tldr">
   <p class="lead" style="margin-top:0"><b>TL;DR</b></p>
   <p style="margin-bottom:0">I built an agent for a 100-task "agentic commerce" benchmark and pushed it from <b>55 → 88.6 / 100</b>
-  (rank #6 overall, the top open-weights entry). The single biggest idea was <b>"LLM as parser, code as compiler"</b>:
-  let the relatively weak open-weights model do the <i>understanding</i>, and move every <i>deterministic</i> step —
+  (#6 of 100 — top open-weights entry). The single biggest idea was <b>"LLM as parser, code as compiler"</b>:
+  let the capable, non-frontier open-weights model do the <i>understanding</i>, and move every <i>deterministic</i> step —
   grounding-reference assembly, policy lookup, math, file formatting, output validation — into ordinary Python. Most of
   the remaining work wasn't smarter prompts; it was <b>schema design, error-recovery, and measurement discipline</b>.
   I also bench-raced ~16 recent models through the same harness and learned that <b>"which model is best" is meaningless
@@ -149,7 +149,7 @@ or one mis-chosen outcome code, and the whole task is zero.</p>
       <li><b>Schemas vary by workspace</b> — directory names and even the yes/no token (<span class="mono">TRUE(1)</span> vs <span class="mono">ja/nein</span>) differ per task.</li>
       <li><b>Instances randomize every run</b> — same task id, different data each trial, so you can't memorize and one run is noisy.</li>
       <li><b>The grounding ref must be an exact <span class="mono">record_path</span> field</b> — which differs from the file's on-disk path.</li>
-      <li><b>The executor is weak.</b> The open-weights track meant driving <b>DeepSeek-V4-Pro in JSON mode</b> — ~10 points weaker than a frontier model at following a complex protocol. This constraint shaped everything.</li>
+      <li><b>The executor isn't frontier.</b> The open-weights track meant driving <b>DeepSeek-V4-Pro</b> (open-weights SOTA) in JSON mode — a capable model, but ~10 points behind frontier <i>closed</i> models at following this strict protocol on a fiddly harness. That gap shaped everything.</li>
     </ul>
   </div>
 </div>
@@ -207,9 +207,11 @@ flowchart TD
 <p class="muted" style="font-size:13px">Scores out of 100. Each bar is a full 100-task production run. Per-run noise ≈ ±4 pts, so only the larger jumps are "real."</p>
 <div class="panel good">
   <p style="margin:0"><b>On the public leaderboard</b> this run (<span class="mono">ds-agent-prod-v9-vmwrite</span>) placed
-  <b>#6 of the field at 88.6/100</b> — the <b>top open-weights entry</b>, competing directly with frontier
-  <span class="mono">gpt-5.4-mini</span> / <span class="mono">gpt-5.5</span> / Codex-CLI agents (board leader 94.9). A
-  relatively weak DeepSeek-V4-Pro held its own against closed frontier models because the <i>harness</i> did the heavy lifting.</p>
+  <b>#6 of ~100 entries at 88.6/100</b> (as of writing — the board is live) — the <b>top open-weights entry</b>,
+  competing directly with frontier <span class="mono">gpt-5.4-mini</span> / <span class="mono">gpt-5.5</span> /
+  Codex-CLI agents. To be clear, this is <b>not a "win"</b>: it's ~12 points shy of a perfect 100 and the board
+  leader sits at 94.9, so there's real headroom left. The point is narrower and more interesting — a <b>top
+  open-weights model held its own against closed frontier models</b> because the <i>harness</i> did the heavy lifting.</p>
 </div>
 
 <table>
@@ -242,8 +244,8 @@ flowchart TD
   <div class="panel callout" style="border-radius:12px;border-left-width:3px">
     <h3 style="margin-top:0"><span class="pill cut">cut</span> &nbsp;What backfired</h3>
     <ul>
-      <li><b>Lean per-family prompts.</b> The exact move a strong-model winner used. It <b>regressed us 81→54</b> — the weak executor needed <i>more</i> scaffolding, not less.</li>
-      <li><b>Prompt bloat.</b> Piling rubrics on diluted the weak JSON-mode model too.</li>
+      <li><b>Lean per-family prompts.</b> The exact move a strong-model winner used. It <b>regressed us 81→54</b> — the non-frontier executor needed <i>more</i> scaffolding, not less.</li>
+      <li><b>Prompt bloat.</b> Piling rubrics on diluted the non-frontier JSON-mode model too.</li>
       <li><b>Bundling fixes.</b> Shipping 4 fixes at once hid an interaction that zeroed a whole run.</li>
       <li><b>Aggressive grounding auto-add.</b> Citing every file touched over-cites on an exact-set grader.</li>
       <li><b>Whole-bucket fraud heuristics</b> (over-flagged) — tuned down to endpoint-pairs.</li>
@@ -314,9 +316,9 @@ flowchart TD
 </div>
 
 <div class="lesson"><div class="tag">Lesson 3 · the executor sets the rules</div>
-  <h3>A weak model needs <i>more</i> scaffolding, not less — and there's a sweet spot.</h3>
-  <p>The lean per-family prompt that a GPT-5-class agent thrived on regressed our weak model from 81 to 54. But piling on
-  rubrics also diluted it. Scaffolding is <b>model-dependent</b>: strong models want terse autonomy, weak models want
+  <h3>A non-frontier model needs <i>more</i> scaffolding, not less — and there's a sweet spot.</h3>
+  <p>The lean per-family prompt that a GPT-5-class agent thrived on regressed our open-weights model from 81 to 54. But piling on
+  rubrics also diluted it. Scaffolding is <b>model-dependent</b>: frontier models want terse autonomy, models a notch below want
   explicit rails — and both have a bloat ceiling. Tune the amount of help <i>to your executor</i>.</p>
 </div>
 
