@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teaching a weak model to win a hard agent benchmark — velavokr</title>
+<meta name="description" content="Post-mortem of building an agent for the BitGN ecom1 agentic-commerce benchmark: 0.55→88.6/100 (rank #6), and what it taught me about agents. By Ruslan Kovalev.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fbf9f4; --bg-2:#f4f0e6; --ink:#161616; --ink-soft:#3a3a3a; --muted:#6e6a62;
+    --rule:#e2dccd; --accent:#fc3f1d; --accent-ink:#b22a0d; --maxw:820px;
+    --blue:#2f5fa8; --green:#1f8a55; --good-bg:#eef6f0; --warn-bg:#fdf3e7; --code:#f3efe4;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    font-size:18px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule)}
+  a:hover{color:var(--accent);border-color:var(--accent)}
+  header.hero{border-bottom:1px solid var(--rule);padding:60px 24px 40px;
+    background:radial-gradient(900px 380px at 85% -20%,rgba(252,63,29,.07),transparent 60%),var(--bg)}
+  .hero-inner{max-width:var(--maxw);margin:0 auto}
+  .eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;
+    font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .eyebrow a{color:var(--muted);border:0}.eyebrow a:hover{color:var(--accent)}
+  .eyebrow .dot{width:7px;height:7px;background:var(--accent);border-radius:999px}
+  h1.title{font-family:'Fraunces',Georgia,serif;font-weight:600;font-variation-settings:"opsz" 144,"SOFT" 30;
+    font-size:clamp(32px,4.6vw,50px);line-height:1.06;letter-spacing:-.018em;margin:18px 0 14px}
+  h1.title em{font-style:italic;font-variation-settings:"opsz" 144,"SOFT" 80;color:var(--accent-ink)}
+  .tagline{font-family:'Fraunces',Georgia,serif;font-style:italic;font-weight:400;font-size:21px;
+    color:var(--ink-soft);margin:0 0 22px;max-width:640px}
+  .hero-meta{display:flex;flex-wrap:wrap;gap:10px 22px;padding-top:18px;border-top:1px solid var(--rule);
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.05em;color:var(--muted)}
+  .hero-meta b{color:var(--ink)} .hero-meta .hot{color:var(--accent-ink)}
+  main{padding:48px 24px 24px}
+  .col{max-width:var(--maxw);margin:0 auto}
+  p{margin:14px 0}
+  .lead{font-size:19px;color:var(--ink-soft)}
+  h2.section{font-family:'Fraunces',Georgia,serif;font-weight:600;font-variation-settings:"opsz" 144,"SOFT" 30;
+    font-size:30px;letter-spacing:-.012em;margin:54px 0 8px;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+  h3{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:20px;margin:26px 0 6px;letter-spacing:-.01em}
+  .mono,code{font-family:'JetBrains Mono',monospace}
+  code{background:var(--code);border:1px solid var(--rule);border-radius:5px;padding:1px 5px;font-size:.82em;color:var(--accent-ink)}
+  .panel{background:var(--bg-2);border:1px solid var(--rule);border-radius:12px;padding:18px 22px;margin:18px 0}
+  .tldr{background:linear-gradient(135deg,#fff,#f4f0e6);border:1px solid var(--rule)}
+  .callout{background:var(--warn-bg);border-left:3px solid var(--accent);border-radius:0 10px 10px 0}
+  .good{background:var(--good-bg);border-left:3px solid var(--green);border-radius:0 10px 10px 0}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-family:'JetBrains Mono',monospace;
+    font-size:11px;letter-spacing:.04em;border:1px solid var(--rule);background:var(--bg);color:var(--muted)}
+  .pill.ow{color:var(--green);border-color:#bfe0cd;background:#eef6f0}
+  .pill.kept{color:var(--green);border-color:#bfe0cd;background:#eef6f0}
+  .pill.cut{color:var(--accent-ink);border-color:#f3c6ba;background:#fdeee8}
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:15px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule)}
+  th{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;letter-spacing:.04em}
+  tr td:first-child{font-weight:600}
+  .num{text-align:right;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+  .best{color:var(--green);font-weight:700}
+  .chart{display:flex;align-items:flex-end;gap:12px;height:300px;margin:24px 0 6px;padding:0 4px}
+  .bcol{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;text-align:center}
+  .bcol .v{font-family:'JetBrains Mono',monospace;font-weight:500;font-size:16px;margin-bottom:7px}
+  .bcol .bar{width:100%;max-width:100px;border-radius:7px 7px 0 0;background:linear-gradient(180deg,#5d8fd0,#2f5fa8)}
+  .bcol.green .v{color:var(--green)}
+  .bcol.green .bar{background:linear-gradient(180deg,#3fbf81,#1f8a55)}
+  .bcol .l{font-size:12.5px;color:var(--muted);line-height:1.3;margin-top:10px;min-height:48px;
+    border-top:1px solid var(--rule);padding-top:9px;width:100%}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}}
+  .lesson{background:#fff;border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:16px 20px;margin:14px 0}
+  .lesson .tag{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .lesson h3{margin:4px 0 6px}
+  .muted{color:var(--muted)}
+  .toc{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--muted)}
+  .toc a{display:inline-block;margin:2px 14px 2px 0;color:var(--muted);border:0}
+  .toc a:hover{color:var(--accent)}
+  ul{margin:10px 0;padding-left:20px} li{margin:6px 0}
+  .kv{display:grid;grid-template-columns:max-content 1fr;gap:5px 18px;font-size:15px}
+  .kv div:nth-child(odd){color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:13px}
+  .mermaid{background:#fff;border:1px solid var(--rule);border-radius:12px;padding:18px;margin:20px 0;text-align:center;overflow:auto}
+  .mermaid:not([data-processed]){font-family:'JetBrains Mono',monospace;font-size:12px;white-space:pre-wrap;text-align:left;color:var(--muted)}
+  .mermaid svg{max-width:100%;height:auto}
+  footer.colophon{margin-top:64px;border-top:1px solid var(--rule);padding:28px 24px 56px;color:var(--muted);
+    font-size:13px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em}
+  .colophon-inner{max-width:var(--maxw);margin:0 auto;display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow"><span class="dot"></span><a href="../index.html">velavokr</a> &middot; notes</span>
+    <h1 class="title">Teaching a weak model to <em>win</em> a hard agent benchmark</h1>
+    <p class="tagline">A post-mortem of building an agent for the BitGN <span class="mono">ecom1</span> agentic-commerce benchmark — and what it taught me about agents.</p>
+    <div class="hero-meta">
+      <span>2026-05 &middot; Ruslan Kovalev</span>
+      <span>executor: <b>DeepSeek-V4-Pro</b> (open-weights)</span>
+      <span>best <b>88.6/100</b> &middot; <span class="hot">#6 on the public leaderboard</span></span>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="col">
+
+<div class="panel tldr">
+  <p class="lead" style="margin-top:0"><b>TL;DR</b></p>
+  <p style="margin-bottom:0">I built an agent for a 100-task "agentic commerce" benchmark and pushed it from <b>55 → 88.6 / 100</b>
+  (rank #6 overall, the top open-weights entry). The single biggest idea was <b>"LLM as parser, code as compiler"</b>:
+  let the relatively weak open-weights model do the <i>understanding</i>, and move every <i>deterministic</i> step —
+  grounding-reference assembly, policy lookup, math, file formatting, output validation — into ordinary Python. Most of
+  the remaining work wasn't smarter prompts; it was <b>schema design, error-recovery, and measurement discipline</b>.
+  I also bench-raced ~16 recent models through the same harness and learned that <b>"which model is best" is meaningless
+  without "on which harness."</b></p>
+</div>
+
+<p class="toc">
+  <a href="#challenge">1 the challenge</a><a href="#arch">2 architecture</a><a href="#journey">3 the journey</a>
+  <a href="#tried">4 everything tried</a><a href="#bakeoff">5 model bake-off</a><a href="#lessons">6 lessons</a>
+  <a href="#next">7 what's next</a>
+</p>
+
+<h2 class="section" id="challenge">1 · The challenge</h2>
+<p><b>BitGN ecom1</b> is an agentic-commerce benchmark. The agent operates a fake company's back-office as a
+<b>file-shaped virtual machine</b>: it can <span class="mono">tree / find / search / read / write / delete / stat / exec</span>,
+and finishes each task by calling <span class="mono">report_completion(message, grounding_refs, outcome)</span>. There
+are <b>100 tasks</b>, each scored <b>0 or 1</b> — one wrong action, one missing/extra reference, one wrong output token,
+or one mis-chosen outcome code, and the whole task is zero.</p>
+
+<div class="grid">
+  <div class="panel">
+    <h3 style="margin-top:0">What the tasks test</h3>
+    <ul>
+      <li><b>Catalogue lookups</b> — "does this exact product exist?" (typed attribute matching)</li>
+      <li><b>Availability counts</b> — "how many of these N items ≥ K in stock today?"</li>
+      <li><b>Mutations</b> — checkout, discount, 3-DS recovery, refunds (real state changes, with authority &amp; policy checks)</li>
+      <li><b>Fraud detection</b> — cluster shared-fingerprint / impossible-travel payments</li>
+      <li><b>Dispatch optimization</b> — route packages over capacitated lanes</li>
+      <li><b>Exports</b> — write a byte-exact TSV report</li>
+      <li><b>Security</b> — refuse PII requests &amp; prompt injection with the <i>right</i> refusal code</li>
+    </ul>
+  </div>
+  <div class="panel">
+    <h3 style="margin-top:0">Why it's brutal</h3>
+    <ul>
+      <li><b>Production mode has no SQL</b> — files + a minimal <span class="mono">jq</span> only.</li>
+      <li><b>Schemas vary by workspace</b> — directory names and even the yes/no token (<span class="mono">TRUE(1)</span> vs <span class="mono">ja/nein</span>) differ per task.</li>
+      <li><b>Instances randomize every run</b> — same task id, different data each trial, so you can't memorize and one run is noisy.</li>
+      <li><b>The grounding ref must be an exact <span class="mono">record_path</span> field</b> — which differs from the file's on-disk path.</li>
+      <li><b>The executor is weak.</b> The open-weights track meant driving <b>DeepSeek-V4-Pro in JSON mode</b> — ~10 points weaker than a frontier model at following a complex protocol. This constraint shaped everything.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 class="section" id="arch">2 · How the best agent ended up looking</h2>
+<p>A small ReAct loop wrapped in a lot of <b>deterministic scaffolding</b>. The model proposes one step at a time as a
+typed JSON object; code does everything that doesn't <i>need</i> a model.</p>
+
+<div class="mermaid">
+flowchart TD
+  T(["TASK"]) --> P["Preload: /AGENTS.MD + routed /docs policy + /bin/id (identity)"]
+  P --> LOOP{{"ReAct loop &nbsp;(≤ 40 steps)"}}
+  LOOP -->|"LLM emits one typed NextStep JSON<br/>(current_state, plan, task_completed, function)"| TOOL["one tool call<br/>read · find · search · exec · write · delete · run_python"]
+  TOOL -->|"run_python"| SOLV["DETERMINISTIC SOLVERS &nbsp;(code owns selection + bytes)<br/>cluster_fraud · dispatch_solve · render_crosslist<br/>cat_find / cat_inventory (self-discovering schema)<br/>vm_write — write a solver's EXACT bytes, no re-type"]
+  SOLV -. result .-> LOOP
+  TOOL -->|"report_completion<br/>(family + bare subject_ids)"| COMP["COMPLETION COMPILER"]
+  COMP --> R1["resolve subject_ids → exact record_path refs"]
+  R1 --> R2["attach mandatory /docs policy-doc chain"]
+  R2 --> R3["auto-resolve linked records (basket→store) · suppress PII"]
+  R3 --> VER{"verify() checklist"}
+  VER -->|"invalid"| REP["ONE repair turn"]
+  REP -.->|"back to loop"| LOOP
+  VER -->|"clean"| SUB(["submit COMPILED message + refs + outcome"])
+  classDef solv fill:#eef6f0,stroke:#1f8a55,color:#14532d;
+  classDef comp fill:#eef2fb,stroke:#2f5fa8,color:#1e3a6b;
+  class SOLV solv;
+  class COMP,R1,R2,R3,VER comp;
+</div>
+
+<h3>The three pillars</h3>
+<div class="panel">
+  <p style="margin-top:0"><b>1. The completion compiler — "LLM as parser, code as compiler."</b> The model never hand-writes
+  the final reference set. It emits a <i>family</i> (e.g. <span class="mono">discount</span>) and <i>subject_ids</i> (bare
+  entity IDs like <span class="mono">basket-0003</span>). Code resolves those to the exact <span class="mono">record_path</span>
+  values the grader wants, attaches the policy documents that family requires, and runs a verifier with one repair turn.
+  Grounding is <b>assembled and tracked by code</b>, never trusted from the model's memory.</p>
+  <p><b>2. Deterministic solvers (code owns selection &amp; bytes).</b> Fraud clustering, dispatch routing, byte-exact TSV
+  rendering, and catalogue matching live in Python that the model <i>calls</i> from a sandbox. The catalogue matcher even
+  <b>discovers the schema at runtime</b> (probes one product + one location to infer field names), so the same code works
+  across the varying dev/prod layouts.</p>
+  <p style="margin-bottom:0"><b>3. An evidence ledger + exact-byte I/O.</b> The runtime records every path the agent
+  observed, and <span class="mono">vm_write</span> lets a solver's exact output bytes hit disk without the model re-typing
+  them (re-typing was silently corrupting TSV exports).</p>
+</div>
+
+<h2 class="section" id="journey">3 · The journey: 55 → 88.6 / 100</h2>
+<div class="chart">
+  <div class="bcol"><div class="v">55</div><div class="bar" style="height:132px"></div><div class="l">baseline ReAct</div></div>
+  <div class="bcol"><div class="v">68</div><div class="bar" style="height:163px"></div><div class="l">refs + policy preload + injection rules</div></div>
+  <div class="bcol"><div class="v">74</div><div class="bar" style="height:178px"></div><div class="l">compiler (shadow→enforce)</div></div>
+  <div class="bcol"><div class="v">80</div><div class="bar" style="height:192px"></div><div class="l">compiler + solvers + real mutations</div></div>
+  <div class="bcol"><div class="v">84.6</div><div class="bar" style="height:203px"></div><div class="l">fixed "no-answer" + receipt + dispatch</div></div>
+  <div class="bcol green"><div class="v">88.6</div><div class="bar" style="height:213px"></div><div class="l">exact-byte exports (vm_write)</div></div>
+</div>
+<p class="muted" style="font-size:13px">Scores out of 100. Each bar is a full 100-task production run. Per-run noise ≈ ±4 pts, so only the larger jumps are "real."</p>
+<div class="panel good">
+  <p style="margin:0"><b>On the public leaderboard</b> this run (<span class="mono">ds-agent-prod-v9-vmwrite</span>) placed
+  <b>#6 of the field at 88.6/100</b> — the <b>top open-weights entry</b>, competing directly with frontier
+  <span class="mono">gpt-5.4-mini</span> / <span class="mono">gpt-5.5</span> / Codex-CLI agents (board leader 94.9). A
+  relatively weak DeepSeek-V4-Pro held its own against closed frontier models because the <i>harness</i> did the heavy lifting.</p>
+</div>
+
+<table>
+  <thead><tr><th>Change</th><th>Idea</th><th class="num">Δ&nbsp;pts</th></tr></thead>
+  <tbody>
+    <tr><td>Grounding discipline</td><td>Cite the <span class="mono">record_path</span> field, not the on-disk path; preload the routed policy doc; refuse top-level injections with the right code</td><td class="num">+13</td></tr>
+    <tr><td>Completion compiler</td><td>LLM emits family+subject_ids; code resolves refs + doc chain + verifies (shadow-mode first, then enforce)</td><td class="num">+6</td></tr>
+    <tr><td>Deterministic solvers</td><td>Fraud / dispatch / crosslist / catalogue moved into Python; the LLM also executes mutations via the SDK (not bash, which the sandbox blocks)</td><td class="num">+6</td></tr>
+    <tr><td>"No-answer" root-cause fix</td><td>A schema constraint silently nuked finished answers; relax + self-correcting retry (see Lesson 5)</td><td class="num">+4</td></tr>
+    <tr><td>Exact-byte exports</td><td><span class="mono">vm_write</span> so the model stops re-typing (and corrupting) the solver's TSV</td><td class="num">+4*</td></tr>
+  </tbody>
+</table>
+<p class="muted" style="font-size:13px">*partly real signal, partly run-to-run variance — see Lesson 7 on the noise floor.</p>
+
+<h2 class="section" id="tried">4 · Everything tried (including the dead ends)</h2>
+<div class="grid">
+  <div class="panel good" style="border-radius:12px;border-left-width:3px">
+    <h3 style="margin-top:0"><span class="pill kept">kept</span> &nbsp;What worked</h3>
+    <ul>
+      <li>Completion compiler + verifier + one repair turn</li>
+      <li>Deterministic solvers (fraud, dispatch, crosslist, catalogue)</li>
+      <li>Self-discovering catalogue schema (no hardcoded field names)</li>
+      <li>Evidence ledger of observed paths</li>
+      <li><span class="mono">vm_write</span> for exact-byte exports</li>
+      <li>Schema relaxation + self-correcting retry loop</li>
+      <li>Provider failover + per-call timeout</li>
+      <li>A 3-model "consensus" review of the design</li>
+    </ul>
+  </div>
+  <div class="panel callout" style="border-radius:12px;border-left-width:3px">
+    <h3 style="margin-top:0"><span class="pill cut">cut</span> &nbsp;What backfired</h3>
+    <ul>
+      <li><b>Lean per-family prompts.</b> The exact move a strong-model winner used. It <b>regressed us 81→54</b> — the weak executor needed <i>more</i> scaffolding, not less.</li>
+      <li><b>Prompt bloat.</b> Piling rubrics on diluted the weak JSON-mode model too.</li>
+      <li><b>Bundling fixes.</b> Shipping 4 fixes at once hid an interaction that zeroed a whole run.</li>
+      <li><b>Aggressive grounding auto-add.</b> Citing every file touched over-cites on an exact-set grader.</li>
+      <li><b>Whole-bucket fraud heuristics</b> (over-flagged) — tuned down to endpoint-pairs.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 class="section" id="bakeoff">5 · The model bake-off (and a trap)</h2>
+<p>With the harness fixed, I ran ~16 recent models (open- and closed-weight) through the <i>same</i> agent on a <b>"hard
+set"</b> — the tasks our best model still failed (so the set actually <i>discriminates</i>). A coercion shim wrapped each
+model's native tool-call shape into our schema so they could all drive the harness.</p>
+<table>
+  <thead><tr><th>Model</th><th>weights</th><th class="num">hard-set (reasoning)</th><th class="num">FULL 100-task</th></tr></thead>
+  <tbody>
+    <tr><td>deepseek-v4-pro <span class="muted">(our harness's model)</span></td><td><span class="pill ow">open</span></td><td class="num">44.4</td><td class="num best">88.6</td></tr>
+    <tr><td>qwen3.7-max</td><td><span class="pill">closed</span></td><td class="num">66.7</td><td class="num">81.0</td></tr>
+    <tr><td>mimo-v2.5-pro</td><td><span class="pill ow">open</span></td><td class="num">66.7</td><td class="num">66.3</td></tr>
+    <tr><td>glm-5.1</td><td><span class="pill ow">open</span></td><td class="num">66.7</td><td class="num muted">—</td></tr>
+  </tbody>
+</table>
+<div class="panel callout">
+  <p style="margin:0"><b>The trap:</b> on the hard reasoning tasks, a <b>cheap open-weights model (mimo) tied the proprietary
+  flagship and beat our own model.</b> Tempting to switch! But on the <i>full</i> benchmark mimo scored only <b>66.3</b> —
+  it failed the <i>easy</i> tasks our model aces (routine checkouts, outcome calibration). The harness was tuned to one
+  model's quirks, so <b>hard-set parity did not transfer to full-benchmark parity.</b> (Lesson 9.)</p>
+</div>
+<h3>Token economics (measured)</h3>
+<div class="panel"><div class="kv">
+  <div>Tokens / task</div><div>~100,600 &nbsp;(<b>in 96.8k · out 3.8k</b>)</div>
+  <div>Input : output</div><div>≈ <b>25 : 1</b> — overwhelmingly input-dominated</div>
+  <div>Steps / task</div><div>~6.5</div>
+  <div>Cost / task</div><div>$0.135 nominal → <b>~$0.07 actual</b> (prompt caching ≈ halves it)</div>
+</div></div>
+<p>The output is tiny; what costs money is the big system prompt plus the <i>growing</i> history of tool outputs replayed
+every step. <b>Context is the expense, not generation.</b></p>
+
+<h2 class="section" id="lessons">6 · Lessons about agents</h2>
+
+<div class="lesson"><div class="tag">Lesson 1 · architecture</div>
+  <h3>LLM as parser, code as compiler.</h3>
+  <p>The biggest lever by far. Split every task into <i>understanding</i> (the model is good at this — parse intent, locate
+  records, decide an outcome) and <i>assembly</i> (it is bad at this — exact references, policy chains, math, byte-perfect
+  files). Push all assembly into deterministic code. A stochastic model does deterministic work <i>stochastically</i>;
+  you don't want a 95%-reliable string-formatter in a 0/1-graded pipeline.</p>
+  <div class="mermaid">
+flowchart TD
+  subgraph LLMG["LLM — understanding (stochastic, fuzzy)"]
+    direction TB
+    A1["parse intent"] --> A2["locate records"] --> A3["decide outcome<br/>emit family + bare subject_ids"]
+  end
+  subgraph CODEG["CODE — assembly (deterministic, exact)"]
+    direction TB
+    B1["resolve exact record_path refs"] --> B2["attach policy-doc chain"] --> B3["compute / format / byte-exact files"] --> B4["verify() → repair gate"]
+  end
+  A3 ==>|"hand-off"| B1
+  classDef l fill:#eef2fb,stroke:#2f5fa8,color:#1e3a6b;
+  classDef c fill:#eef6f0,stroke:#1f8a55,color:#14532d;
+  class A1,A2,A3 l;
+  class B1,B2,B3,B4 c;
+</div>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 2 · grounding</div>
+  <h3>Track state and evidence in code, not in the model's memory.</h3>
+  <p>The model forgets paths, invents siblings, and over-/under-cites. The runtime should own an evidence ledger and
+  <i>build</i> the answer's references from IDs the model names. Independently, every winner of this benchmark's sibling
+  converged on the same thing: "the model reasons; the runtime tracks grounding and validates outcomes."</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 3 · the executor sets the rules</div>
+  <h3>A weak model needs <i>more</i> scaffolding, not less — and there's a sweet spot.</h3>
+  <p>The lean per-family prompt that a GPT-5-class agent thrived on regressed our weak model from 81 to 54. But piling on
+  rubrics also diluted it. Scaffolding is <b>model-dependent</b>: strong models want terse autonomy, weak models want
+  explicit rails — and both have a bloat ceiling. Tune the amount of help <i>to your executor</i>.</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 4 · the last mile</div>
+  <h3>On a strict grader, precision beats intelligence.</h3>
+  <p>Most of our zeros were "formally invalid but semantically almost-correct": a path missing a leading slash, a premature
+  <span class="mono">OUTCOME_OK</span>, a sibling SKU variant, re-typed bytes. The model usually <i>understood</i> the
+  task; it fumbled the contract. A deterministic compiler + verifier is how you stop losing points you've already earned.</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 5 · failure modes</div>
+  <h3><span class="mono">temperature=0</span> turns a transient error into a permanent one.</h3>
+  <p>Six tasks silently produced no answer. Cause: the output schema required a non-empty "plan" list, but a <i>finishing</i>
+  step legitimately has an empty plan → validation rejected it → and at temperature 0 the model reproduced the <i>identical</i>
+  invalid JSON on every retry, so the loop gave up. Retrying an unchanged prompt at temp 0 is futile. Fix: relax the schema
+  <i>and</i> make retries <b>self-correcting</b> — feed the validation error back so the input differs.</p>
+  <div class="mermaid">
+flowchart TD
+  E["LLM emits JSON at temp=0"] --> V{"validates?"}
+  V -->|"yes"| OK(["proceed"])
+  V -->|"no — BUG: retry SAME prompt"| E
+  V -.->|"after 5× identical fails"| X(["loop breaks → no answer → 0"]):::bad
+  V ==>|"FIX: append the error, retry DIFFERENT prompt"| E2["LLM self-corrects"] --> OK
+  classDef bad fill:#fdeee8,stroke:#b22a0d,color:#7a1c08;
+  classDef ok fill:#eef6f0,stroke:#1f8a55,color:#14532d;
+  class OK,E2 ok;
+</div>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 6 · schema is design</div>
+  <h3>Your output schema is a contract with the model <i>and</i> with your own code.</h3>
+  <p>A too-strict constraint (min/max length on a list) silently killed answers. Then, after relaxing it, an <i>unguarded</i>
+  <span class="mono">plan[0]</span> access started throwing on the now-legal empty list and zeroed an entire run. The schema
+  sits between two consumers; loosen one side and you can break the other. Treat the schema as a first-class part of the agent.</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 7 · measurement</div>
+  <h3>Know your eval's noise floor before you trust a delta.</h3>
+  <p>Randomized instances gave a per-run standard deviation of ≈4 points. A "+2-point improvement" from one run is noise.
+  This changes strategy: raise the <i>mean</i> with high-coverage fixes, and — because the leaderboard takes your <i>best</i>
+  run — exploit variance with best-of-N only after the mean has moved. Don't optimize against a number you can't measure.</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 8 · change control</div>
+  <h3>Fix one category at a time.</h3>
+  <p>I once shipped four fixes in one run; an interaction between two of them zeroed the whole run, and I couldn't see which
+  until I unbundled them. With a noisy 0/1 eval you lose causality fast. One change, one measurement, ideally on a targeted
+  replay set of the failures you're attacking.</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 9 · evaluation</div>
+  <h3>"Best model" is meaningless without "on which harness."</h3>
+  <p>A cheap open model tied the flagship on hard reasoning but lost badly on the full set, because our harness was tuned to
+  one model's quirks. A model's benchmark rank is a property of the <i>model × harness</i> pair, not the model. And a
+  discriminating "hard set" is great for ranking <i>reasoning</i> but can mislead about <i>overall</i> performance, which is
+  dominated by the many easy tasks.</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 10 · don't trust, enforce</div>
+  <h3>Force tool use; make the exact bytes flow through code.</h3>
+  <p>The model would call a perfect TSV-rendering solver and then <i>re-type</i> its output into the write tool, quietly
+  changing the casing. The fix wasn't a better prompt — it was giving the sandbox a <span class="mono">vm_write</span> so
+  the solver's exact bytes hit disk directly, plus a read-back check. If a step must be exact, don't route it through the
+  model's keyboard.</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 11 · cost</div>
+  <h3>Agent cost is input-dominated; caching is a first-class lever.</h3>
+  <p>25:1 input:output. The expense is the system prompt plus the ever-growing tool-output history replayed each step, not
+  the model's short JSON replies. Prompt caching roughly halved the real cost. Design prompts and context windows with the
+  input bill in mind, and keep stable prefixes cacheable.</p>
+</div>
+
+<div class="lesson"><div class="tag">Lesson 12 · portability</div>
+  <h3>Cross-model portability needs a translation layer.</h3>
+  <p>Models emit tool calls in different shapes; tool-tuned models especially love their own native format. A small coercion
+  shim that maps any reasonable shape into <i>your</i> schema (wrap a flat <span class="mono">{tool:…}</span> into the
+  <span class="mono">NextStep</span> envelope) is what let one harness drive a dozen models. Your schema is a lingua-franca
+  you must be willing to translate <i>to</i>.</p>
+</div>
+
+<h3>Blind spots &amp; what we got lucky on</h3>
+<div class="panel">
+  <ul style="margin:0">
+    <li><b>The architecture leaned on unusually inspectable state.</b> The compiler strategy generalizes, but it was <i>easy</i>
+    here because the world was file-shaped with explicit <span class="mono">record_path</span> values to cite.</li>
+    <li><b>A lucky constraint made us more robust.</b> SQL being down in production forced file-native techniques — runtime
+    schema discovery, <span class="mono">jq</span>, deterministic solvers, path ledgers. A SQL-dependent design would have
+    been more brittle.</li>
+    <li><b>The score reflects best-of-N.</b> With σ≈4 pts and a leaderboard that takes your best run, 88.6 is partly mean
+    quality and partly variance sampling. Honest reporting separates the two.</li>
+    <li><b>The harness is model-tuned.</b> Swapping models isn't an endpoint change — it's a re-tuning project (the bake-off proved it).</li>
+    <li><b>"One repair turn" is a double-edged safety valve.</b> It rescued many near-misses, but a deeper loop might recover more — or cause new premature actions.</li>
+  </ul>
+</div>
+
+<h2 class="section" id="next">7 · What I'd do next</h2>
+<ul>
+  <li><b>Push enforcement into the tool layer</b> — make the answer impossible to submit unless a required solver "receipt"
+  exists, and let code <i>decide</i> the security/clarification/unsupported outcome where it's deterministically knowable.</li>
+  <li><b>Trust-tagged reads</b> — wrap file contents with provenance metadata so injected instructions inside data are
+  structurally distinguishable from the real task.</li>
+  <li><b>A per-bucket replay harness</b> — re-run only the failing category after each change, to beat the noise floor.</li>
+  <li><b>Best-of-N on a frozen config</b> — since the board takes the best run and σ≈4 pts.</li>
+</ul>
+
+<div class="panel tldr" style="margin-top:24px">
+  <p style="margin:0"><b>The one-sentence takeaway:</b> a modest model wrapped in disciplined, deterministic code — that owns
+  grounding, computation, formatting, validation, and error recovery — beats a smarter model left to do that work itself.
+  <i>Most of "agent engineering" is deciding what the model should</i> not <i>be trusted to do.</i></p>
+</div>
+
+</div>
+</main>
+
+<footer class="colophon">
+  <div class="colophon-inner">
+    <span>&copy; Ruslan Kovalev &middot; CC&nbsp;BY&nbsp;4.0 &middot; lessons cross-checked with frontier models</span>
+    <span><a href="../index.html">&larr; velavokr</a> &middot; <a href="https://github.com/velavokr/bitgn-ecom">code &amp; notes</a></span>
+  </div>
+</footer>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true, securityLevel: 'loose', theme: 'base',
+    themeVariables: {
+      fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '13px',
+      background: '#ffffff', primaryColor: '#f4f0e6', primaryBorderColor: '#d8cdb4',
+      primaryTextColor: '#161616', lineColor: '#b22a0d', secondaryColor: '#fbf9f4',
+      tertiaryColor: '#ffffff', clusterBkg: '#fbf9f4', clusterBorder: '#e2dccd',
+      edgeLabelBackground: '#fbf9f4', nodeBorder: '#d8cdb4'
+    },
+    flowchart: { curve: 'basis', useMaxWidth: true, htmlLabels: true, padding: 14, nodeSpacing: 45, rankSpacing: 50 }
+  });
+</script>
+</body>
+</html>
