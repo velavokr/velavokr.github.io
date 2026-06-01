@@ -109,7 +109,7 @@
   <p class="lead" style="margin-top:0"><b>TL;DR</b></p>
   <p style="margin-bottom:0">I built an agent for a 100-task "agentic commerce" benchmark and pushed it from <b>55 → 88.6 / 100</b>
   (#6 of 100 — top open-weights entry). The single biggest idea was <b>"LLM as parser, code as compiler"</b>:
-  let the capable, non-frontier open-weights model do the <i>understanding</i>, and move every <i>deterministic</i> step —
+  let the capable open-weights model do the <i>understanding</i>, and move every <i>deterministic</i> step —
   grounding-reference assembly, policy lookup, math, file formatting, output validation — into ordinary Python. Most of
   the remaining work wasn't smarter prompts; it was <b>schema design, error-recovery, and measurement discipline</b>.
   I also bench-raced ~16 recent models through the same harness and learned that <b>"which model is best" is meaningless
@@ -143,16 +143,19 @@ or one mis-chosen outcome code, and the whole task is zero.</p>
     </ul>
   </div>
   <div class="panel">
-    <h3 style="margin-top:0">Why it's brutal</h3>
+    <h3 style="margin-top:0">Two rounds: dev &amp; prod</h3>
     <ul>
-      <li><b>Production mode has no SQL</b> — files + a minimal <span class="mono">jq</span> only.</li>
-      <li><b>Schemas vary by workspace</b> — directory names and even the yes/no token (<span class="mono">TRUE(1)</span> vs <span class="mono">ja/nein</span>) differ per task.</li>
-      <li><b>Instances randomize every run</b> — same task id, different data each trial, so you can't memorize and one run is noisy.</li>
-      <li><b>The grounding ref must be an exact <span class="mono">record_path</span> field</b> — which differs from the file's on-disk path.</li>
-      <li><b>The executor isn't frontier.</b> The open-weights track meant driving <b>DeepSeek-V4-Pro</b> (open-weights SOTA) in JSON mode — a capable model, but ~10 points behind frontier <i>closed</i> models at following this strict protocol on a fiddly harness. That gap shaped everything.</li>
+      <li><b>Dev</b> — the gentler round: SQL is available, the catalogue layout is flatter, and the yes/no token is fixed (<span class="mono">&lt;YES&gt;</span> / <span class="mono">&lt;NO&gt;</span>).</li>
+      <li><b>Prod</b> — file-native and stricter: <b>no SQL</b> (you walk JSON under nested <span class="mono">/proc</span> dirs with a minimal <span class="mono">jq</span>); the yes/no token <b>varies</b> by workspace (<span class="mono">TRUE(1)/FALSE(0)</span>, <span class="mono">ja/nein</span>, …); <b>instances randomize</b> each trial (so a single run is noisy); and the grounding ref must be the exact <span class="mono">record_path</span> field, not the on-disk path.</li>
+      <li>I focused on <b>prod</b> — it's the live-scored round and the one the open-weights board tracks.</li>
     </ul>
   </div>
 </div>
+
+<p>One choice up front was deliberate: I didn't reach for a costly frontier model. I ran <b>DeepSeek-V4-Pro</b> — an
+open-weights SOTA model — because it's far cheaper to run and because it's what the open-weights leaderboard tracks.
+It does trail the best <i>closed</i> models by ~10 points at following this strict, fiddly answer protocol — and
+closing that gap with deterministic code is the whole story below.</p>
 
 <h2 class="section" id="arch">2 · How the best agent ended up looking</h2>
 <p>A small ReAct loop wrapped in a lot of <b>deterministic scaffolding</b>. The model proposes one step at a time as a
